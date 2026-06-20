@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Protein Tracker</title>
+<meta name="description" content="Daily protein tracker for a calcium-conscious WFPB plan">
+<meta name="theme-color" content="#0F6E56">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Protein">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <h1>Daily protein tracker</h1>
+  <p class="sub">Target ~190g/day &middot; calcium-conscious WFPB plan</p>
+
+  <div class="install-banner" id="installBanner">
+    <span>Install this app on your home screen for quick access.</span>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button id="installBtn">Install</button>
+      <button class="dismiss" id="dismissInstall" aria-label="Dismiss">&times;</button>
+    </div>
+  </div>
+
+  <div class="day-nav">
+    <button id="prevDay" aria-label="Previous day">&#8592;</button>
+    <div class="day-label-wrap">
+      <div class="day-label" id="dayLabel">Today</div>
+      <div class="day-date" id="dayDate"></div>
+    </div>
+    <button id="nextDay" aria-label="Next day">&#8594;</button>
+  </div>
+  <div style="display:flex; justify-content:center; margin: -6px 0 1rem;">
+    <input type="date" class="date-picker" id="datePicker" min="2026-06-20" max="2027-06-19">
+  </div>
+
+  <div class="card">
+    <div class="progress-row">
+      <div>
+        <div class="progress-total"><span id="totalProtein">0</span>g</div>
+      </div>
+      <div class="progress-target">of <span id="targetDisplay">190</span>g target</div>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+    <div class="remaining" id="remainingMsg"></div>
+
+    <div class="meal-grid" id="mealGrid"></div>
+
+    <div class="target-row">
+      <label for="targetInput" style="font-size:12px;color:var(--text-muted);">Daily target (g)</label>
+      <input type="number" id="targetInput" value="190" min="0" step="5">
+      <button class="add-btn" id="saveTargetBtn">Save</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Quick add &mdash; plan recipes</div>
+    <div class="quick-grid" id="quickGrid"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Add custom item</div>
+    <div class="custom-row">
+      <input type="text" id="customName" placeholder="Food name">
+      <input type="number" id="customProtein" placeholder="Protein (g)" min="0" step="0.5">
+      <select id="customMeal">
+        <option value="Breakfast">Breakfast</option>
+        <option value="Lunch">Lunch</option>
+        <option value="Dinner">Dinner</option>
+        <option value="Snack">Snack</option>
+      </select>
+      <button class="add-btn" id="addCustomBtn">Add</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">This day's log</div>
+    <div class="log-list" id="logList"></div>
+    <div class="status-msg" id="statusMsg"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Protein history</div>
+    <div class="period-tabs">
+      <button class="period-tab" data-period="week">Week</button>
+      <button class="period-tab" data-period="month">Month</button>
+      <button class="period-tab active" data-period="total">Total</button>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="historyChart"></canvas>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
