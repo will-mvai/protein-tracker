@@ -84,6 +84,17 @@
   </div>
 
   <div class="card">
+    <div class="section-title">Backup &amp; restore</div>
+    <p class="backup-desc">Download your full log as a file you can keep safe, or restore from a previous backup. Importing merges with what's already here — it won't delete existing entries.</p>
+    <div class="backup-row">
+      <button class="add-btn" id="exportBtn">Export backup</button>
+      <button class="add-btn secondary" id="importBtn">Import backup</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+    <div class="status-msg" id="importStatus"></div>
+  </div>
+
+  <div class="card">
     <div class="section-title">Protein history</div>
     <div class="period-tabs">
       <button class="period-tab" data-period="week">Week</button>
