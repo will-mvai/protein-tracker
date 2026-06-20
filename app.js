@@ -131,6 +131,29 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+function flashButton(btn) {
+  btn.classList.add("added");
+  setTimeout(() => btn.classList.remove("added"), 400);
+}
+
+let toastTimer = null;
+function showToast(html) {
+  let toast = document.getElementById("toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "toast";
+    toast.className = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = html;
+  toast.classList.remove("show");
+  // force reflow so the animation restarts on rapid repeat taps
+  void toast.offsetWidth;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 1600);
+}
+
 // ---------- Day view rendering ----------
 function renderDayNav() {
   document.getElementById("dayLabel").textContent = formatLabel(currentDate);
@@ -219,6 +242,8 @@ function renderQuickAdds() {
       saveEntriesFor(currentDate, entries);
       renderDay();
       renderHistory();
+      flashButton(btn);
+      showToast(item.name + " added &middot; +" + item.protein + "g");
     });
     grid.appendChild(btn);
   });
@@ -242,6 +267,7 @@ function initCustomAdd() {
     renderDay();
     renderHistory();
     setStatus("");
+    showToast(name + " added &middot; +" + protein + "g");
   });
 }
 
