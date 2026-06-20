@@ -347,6 +347,107 @@ function getAllLoggedDates() {
   return out.sort();
 }
 
+// ---------- Export / import ----------
+function exportData() {
+  const dates = getAllLoggedDates();
+  const logs = {};
+  dates.forEach((ymd) => { logs[ymd] = loadEntriesFor(ymd); });
+
+  const payload = {
+    app: "protein-tracker",
+    exportedAt: new Date().toISOString(),
+    target,
+    logs,
+  };
+
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = toYmd(new Date());
+  a.href = url;
+  a.download = "protein-tracker-backup-" + stamp + ".json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+  showToast("Backup downloaded &middot; " + dates.length + " day(s)");
+}
+
+function importDataFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    let payload;
+    try {
+      payload = JSON.parse(reader.result);
+    } catch (e) {
+      setImportStatus("That file isn't valid JSON — couldn't read it.");
+      return;
+    }
+    if (!payload || typeof payload !== "object" || !payload.logs) {
+      setImportStatus("That file doesn't look like a protein tracker backup.");
+      return;
+    }
+
+    const incomingDates = Object.keys(payload.logs);
+    if (incomingDates.length === 0) {
+      setImportStatus("Backup file has no logged days to import.");
+      return;
+    }
+
+    // Merge by day: incoming entries are appended to whatever already exists for that day,
+    // rather than overwriting, so importing never silently deletes entries already on this device.
+    let daysWritten = 0;
+    let entriesAdded = 0;
+    incomingDates.forEach((ymd) => {
+      if (ymd < START_DATE || ymd > END_DATE) return;
+      const incoming = Array.isArray(payload.logs[ymd]) ? payload.logs[ymd] : [];
+      if (incoming.length === 0) return;
+      const existing = loadEntriesFor(ymd);
+      const existingKeys = new Set(existing.map((e) => e.name + "|" + e.protein + "|" + e.meal + "|" + e.ts));
+      const merged = existing.slice();
+      incoming.forEach((e) => {
+        if (!e || typeof e.protein !== "number" || !e.name || !e.meal) return;
+        const key = e.name + "|" + e.protein + "|" + e.meal + "|" + e.ts;
+        if (existingKeys.has(key)) return; // skip exact duplicates (e.g. re-importing the same backup)
+        merged.push(e);
+        entriesAdded++;
+      });
+      saveEntriesFor(ymd, merged);
+      daysWritten++;
+    });
+
+    entries = loadEntriesFor(currentDate);
+    renderDay();
+    renderHistory();
+
+    let msg = entriesAdded > 0
+      ? "Imported " + entriesAdded + " entr" + (entriesAdded === 1 ? "y" : "ies") + " across " + daysWritten + " day(s)."
+      : "Backup matched what's already here — nothing new to add.";
+
+    if (typeof payload.target === "number" && payload.target > 0 && payload.target !== target) {
+      const applyTarget = window.confirm(
+        "This backup also has a saved daily target of " + payload.target + "g (yours is currently " + target + "g). Use the backup's target?"
+      );
+      if (applyTarget) {
+        saveTarget(payload.target);
+        renderDay();
+        msg += " Target updated to " + payload.target + "g.";
+      }
+    }
+
+    setImportStatus(msg);
+  };
+  reader.onerror = () => setImportStatus("Couldn't read that file.");
+  reader.readAsText(file);
+}
+
+function setImportStatus(msg) {
+  const el = document.getElementById("importStatus");
+  if (el) el.textContent = msg;
+}
+
 function setStatus(msg) {
   const el = document.getElementById("statusMsg");
   if (el) el.textContent = msg;
@@ -768,6 +869,22 @@ function registerServiceWorker() {
   }
 }
 
+function initBackupRestore() {
+  document.getElementById("exportBtn").addEventListener("click", () => {
+    exportData();
+  });
+
+  const importBtn = document.getElementById("importBtn");
+  const importFile = document.getElementById("importFile");
+  importBtn.addEventListener("click", () => importFile.click());
+  importFile.addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    importDataFromFile(file);
+    importFile.value = ""; // reset so the same file can be re-selected later if needed
+  });
+}
+
 // ---------- Init ----------
 function init() {
   loadTarget();
@@ -778,6 +895,7 @@ function init() {
   initTargetControl();
   initPeriodTabs();
   initInstallBanner();
+  initBackupRestore();
   renderDay();
   renderHistory();
   registerServiceWorker();
