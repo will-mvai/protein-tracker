@@ -5,20 +5,246 @@ const STORAGE_PREFIX = "protein-tracker:";
 const TARGET_KEY = STORAGE_PREFIX + "target";
 const LOG_PREFIX = STORAGE_PREFIX + "log:";
 
-const QUICK_ADDS = [
-  { name: "Pea protein oats", protein: 40, meal: "Breakfast" },
-  { name: "Tofu scramble bowl", protein: 30, meal: "Breakfast" },
-  { name: "Oatmeal, regular (1/2 cup dry)", protein: 5, meal: "Breakfast" },
-  { name: "Lentil-edamame bowl", protein: 40, meal: "Lunch" },
-  { name: "Baked salmon (5-6oz)", protein: 40, meal: "Dinner" },
-  { name: "Tempeh stir-fry", protein: 30, meal: "Dinner" },
-  { name: "Egg scramble (3 eggs) + side", protein: 35, meal: "Dinner" },
-  { name: "Pea protein shake (1 scoop)", protein: 15, meal: "Snack" },
-  { name: "Almond-walnut mix", protein: 8, meal: "Snack" },
-  { name: "Almonds (1/4 cup)", protein: 7, meal: "Snack" },
-  { name: "Walnuts (1/4 cup)", protein: 4.5, meal: "Snack" },
-  { name: "Peanuts (1/4 cup)", protein: 9, meal: "Snack" },
+// Each recipe's protein total is the sum of its own ingredient list (not a separate rounded estimate),
+// so the quick-add number always matches what the detail view shows.
+const RECIPES = [
+  {
+    name: "Pea protein overnight oats",
+    meal: "Breakfast",
+    serves: 1,
+    time: "5 min prep + overnight",
+    ingredients: [
+      { amount: "1/2 cup", item: "Rolled oats", protein: 5 },
+      { amount: "1 cup", item: "Unfortified soy milk", protein: 7 },
+      { amount: "1 scoop", item: "Pea protein powder (unfortified)", protein: 15 },
+      { amount: "1 tbsp", item: "Almond butter", protein: 3.5 },
+      { amount: "1 tbsp", item: "Chopped walnuts (topping)", protein: 1 },
+      { amount: "1/2 tsp", item: "Cinnamon (optional)", protein: 0 },
+    ],
+    steps: [
+      "Combine oats, soy milk, pea protein, and almond butter in a jar or bowl. Stir until the protein powder is fully dissolved with no clumps.",
+      "Cover and refrigerate overnight, at least 6 hours.",
+      "In the morning, stir again and add a splash of soy milk if too thick.",
+      "Top with chopped walnuts and cinnamon just before eating.",
+    ],
+  },
+  {
+    name: "Tofu scramble bowl",
+    meal: "Breakfast",
+    serves: 1,
+    time: "15 min",
+    ingredients: [
+      { amount: "6 oz", item: "Firm tofu, pressed and crumbled", protein: 14 },
+      { amount: "1/2 tsp", item: "Turmeric", protein: 0 },
+      { amount: "1/2 tsp", item: "Garlic powder", protein: 0 },
+      { amount: "Pinch", item: "Black salt (kala namak)", protein: 0 },
+      { amount: "1 cup", item: "Spinach, chopped", protein: 1 },
+      { amount: "1/2", item: "Bell pepper, diced", protein: 0.5 },
+      { amount: "1 tsp", item: "Olive oil", protein: 0 },
+      { amount: "1 tbsp", item: "Nutritional yeast", protein: 4 },
+    ],
+    steps: [
+      "Heat olive oil in a non-stick pan over medium heat.",
+      "Add bell pepper and saute 2-3 minutes until softening.",
+      "Add crumbled tofu, turmeric, garlic powder, and black salt. Stir to combine.",
+      "Cook 5-6 minutes, stirring occasionally, until tofu is heated through and slightly golden.",
+      "Fold in spinach during the last minute, just until wilted.",
+      "Finish with nutritional yeast. Pair with a lentil or tofu side (see separate quick-add) to round out the meal.",
+    ],
+  },
+  {
+    name: "Oatmeal, regular",
+    meal: "Breakfast",
+    serves: 1,
+    time: "5 min",
+    ingredients: [
+      { amount: "1/2 cup", item: "Rolled oats, dry", protein: 5 },
+    ],
+    steps: [
+      "Combine oats with 1 cup water or unfortified soy milk in a pot.",
+      "Bring to a simmer, stirring occasionally, 5 minutes until thickened.",
+      "Top as desired.",
+    ],
+  },
+  {
+    name: "Lentil-edamame power bowl",
+    meal: "Lunch",
+    serves: 1,
+    time: "15-20 min (5 min with pre-cooked lentils/quinoa)",
+    ingredients: [
+      { amount: "1 cup", item: "Lentils, cooked", protein: 18 },
+      { amount: "1/2 cup", item: "Edamame, shelled", protein: 11 },
+      { amount: "1/2 cup", item: "Quinoa, cooked", protein: 4 },
+      { amount: "1 cup", item: "Mixed roasted vegetables", protein: 2 },
+      { amount: "1 tbsp", item: "Tahini", protein: 2.6 },
+      { amount: "1 tsp", item: "Lemon juice", protein: 0 },
+      { amount: "1 tbsp", item: "Sliced almonds", protein: 2 },
+      { amount: "To taste", item: "Salt, pepper, cumin", protein: 0 },
+    ],
+    steps: [
+      "Batch-cook lentils and quinoa ahead of time for a 5-minute assembly; budget extra time if cooking fresh.",
+      "Whisk tahini, lemon juice, and a splash of water into a pourable dressing.",
+      "Layer lentils, quinoa, edamame, and roasted vegetables in a bowl.",
+      "Drizzle with tahini dressing, season with cumin, salt, and pepper.",
+      "Top with sliced almonds for crunch.",
+    ],
+  },
+  {
+    name: "Baked salmon + edamame/greens",
+    meal: "Dinner",
+    serves: 1,
+    time: "20 min",
+    ingredients: [
+      { amount: "5-6 oz", item: "Salmon fillet", protein: 38 },
+      { amount: "1 tsp", item: "Olive oil", protein: 0 },
+      { amount: "1", item: "Lemon, sliced", protein: 0 },
+      { amount: "To taste", item: "Garlic powder, black pepper, dill", protein: 0 },
+      { amount: "1 cup", item: "Edamame (shelled) or steamed greens", protein: 17 },
+    ],
+    steps: [
+      "Preheat oven to 400°F (200°C).",
+      "Place salmon on a lined baking sheet, drizzle with olive oil, and season with garlic powder, pepper, and dill.",
+      "Top with lemon slices.",
+      "Bake 12-15 minutes, until salmon flakes easily with a fork.",
+      "Serve with steamed edamame or leafy greens (kale, chard, or broccoli all work well).",
+    ],
+  },
+  {
+    name: "Tempeh stir-fry",
+    meal: "Dinner",
+    serves: 1,
+    time: "15-20 min",
+    ingredients: [
+      { amount: "5 oz", item: "Tempeh, sliced or crumbled", protein: 28 },
+      { amount: "1 cup", item: "Broccoli florets", protein: 3 },
+      { amount: "1/2 cup", item: "Snap peas", protein: 1 },
+      { amount: "1 tsp", item: "Sesame oil", protein: 0 },
+      { amount: "1 tbsp", item: "Low-sodium soy sauce or tamari", protein: 1.5 },
+      { amount: "1 tsp", item: "Garlic, minced", protein: 0 },
+      { amount: "1 tsp", item: "Ginger, minced", protein: 0 },
+      { amount: "1 tbsp", item: "Slivered almonds", protein: 2 },
+    ],
+    steps: [
+      "Heat sesame oil in a wok or large skillet over medium-high heat.",
+      "Add garlic and ginger, saute 30 seconds until fragrant.",
+      "Add tempeh and cook 4-5 minutes, turning occasionally, until lightly browned.",
+      "Add broccoli and snap peas, stir-fry 4-5 minutes until crisp-tender.",
+      "Add soy sauce, toss to coat.",
+      "Top with slivered almonds before serving.",
+    ],
+  },
+  {
+    name: "Egg scramble, 3 eggs",
+    meal: "Dinner",
+    serves: 1,
+    time: "15 min",
+    ingredients: [
+      { amount: "3", item: "Large eggs", protein: 18 },
+      { amount: "1 cup", item: "Spinach, chopped", protein: 1 },
+      { amount: "1 tsp", item: "Olive oil", protein: 0 },
+      { amount: "To taste", item: "Salt, pepper", protein: 0 },
+    ],
+    steps: [
+      "Heat olive oil in a non-stick pan over medium heat.",
+      "Whisk eggs in a bowl, season with salt and pepper.",
+      "Pour eggs into the pan and let set slightly before gently folding/scrambling.",
+      "Fold in spinach during the last minute of cooking.",
+      "Serve alongside a tofu or lentil side (see separate quick-adds) to round out the protein for the meal.",
+    ],
+  },
+  {
+    name: "+ tofu side (1/2 cup)",
+    meal: "Dinner",
+    serves: 1,
+    time: "5 min",
+    ingredients: [
+      { amount: "1/2 cup", item: "Firm tofu, cubed and warmed", protein: 10 },
+    ],
+    steps: [
+      "Warm cubed tofu gently in a pan or microwave.",
+      "Serve alongside the egg scramble.",
+    ],
+  },
+  {
+    name: "+ lentil side (1/2 cup)",
+    meal: "Dinner",
+    serves: 1,
+    time: "5 min",
+    ingredients: [
+      { amount: "1/2 cup", item: "Lentils, cooked and warmed", protein: 9 },
+    ],
+    steps: [
+      "Warm cooked lentils gently in a pan or microwave.",
+      "Serve alongside the egg scramble.",
+    ],
+  },
+  {
+    name: "Pea protein shake (1 scoop)",
+    meal: "Snack",
+    serves: 1,
+    time: "2 min",
+    ingredients: [
+      { amount: "1 scoop", item: "Pea protein powder (unfortified)", protein: 15 },
+      { amount: "1 cup", item: "Unfortified soy milk or water", protein: 0 },
+      { amount: "1/2", item: "Banana (optional)", protein: 0.6 },
+      { amount: "As desired", item: "Ice", protein: 0 },
+    ],
+    steps: [
+      "Combine all ingredients in a blender.",
+      "Blend until smooth, about 30 seconds.",
+      "Drink within 30-60 minutes after lifting for optimal muscle protein synthesis timing.",
+    ],
+  },
+  {
+    name: "Almond-walnut snack mix",
+    meal: "Snack",
+    serves: 1,
+    time: "0 min",
+    ingredients: [
+      { amount: "1/4 cup", item: "Almonds", protein: 7 },
+      { amount: "Small handful", item: "Walnuts", protein: 1 },
+    ],
+    steps: [
+      "Combine in a small container or bag.",
+      "Portion ahead for the week to make this a true zero-prep snack.",
+    ],
+  },
+  {
+    name: "Almonds (1/4 cup)",
+    meal: "Snack",
+    serves: 1,
+    time: "0 min",
+    ingredients: [
+      { amount: "1/4 cup", item: "Almonds", protein: 7 },
+    ],
+    steps: ["Portion and eat."],
+  },
+  {
+    name: "Walnuts (1/4 cup)",
+    meal: "Snack",
+    serves: 1,
+    time: "0 min",
+    ingredients: [
+      { amount: "1/4 cup", item: "Walnuts", protein: 4.5 },
+    ],
+    steps: ["Portion and eat."],
+  },
+  {
+    name: "Peanuts (1/4 cup)",
+    meal: "Snack",
+    serves: 1,
+    time: "0 min",
+    ingredients: [
+      { amount: "1/4 cup", item: "Peanuts", protein: 9 },
+    ],
+    steps: ["Portion and eat."],
+  },
 ];
+
+// Derive each recipe's total protein from its own ingredient list so quick-add and detail view never disagree.
+RECIPES.forEach((r) => {
+  r.protein = Math.round(r.ingredients.reduce((sum, ing) => sum + ing.protein, 0) * 10) / 10;
+});
 
 const MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
 
@@ -233,20 +459,74 @@ function goToDate(ymd) {
 function renderQuickAdds() {
   const grid = document.getElementById("quickGrid");
   grid.innerHTML = "";
-  QUICK_ADDS.forEach((item) => {
-    const btn = document.createElement("button");
-    btn.className = "quick-btn";
-    btn.innerHTML = '<span class="qname">' + escapeHtml(item.name) + '</span><span class="qprotein">' + item.protein + 'g protein &middot; ' + item.meal + '</span>';
-    btn.addEventListener("click", () => {
+  RECIPES.forEach((item, idx) => {
+    const card = document.createElement("div");
+    card.className = "recipe-card";
+
+    const row = document.createElement("div");
+    row.className = "recipe-row";
+
+    const addBtn = document.createElement("button");
+    addBtn.className = "quick-btn";
+    addBtn.innerHTML = '<span class="qname">' + escapeHtml(item.name) + '</span><span class="qprotein">' + item.protein + 'g protein &middot; ' + item.meal + '</span>';
+    addBtn.addEventListener("click", () => {
       entries.push({ name: item.name, protein: item.protein, meal: item.meal, ts: Date.now() });
       saveEntriesFor(currentDate, entries);
       renderDay();
       renderHistory();
-      flashButton(btn);
+      flashButton(addBtn);
       showToast(item.name + " added &middot; +" + item.protein + "g");
     });
-    grid.appendChild(btn);
+
+    const viewBtn = document.createElement("button");
+    viewBtn.className = "view-recipe-btn";
+    viewBtn.setAttribute("aria-label", "View recipe for " + item.name);
+    viewBtn.setAttribute("aria-expanded", "false");
+    viewBtn.innerHTML = "<span class=\"chev\">&#9662;</span>";
+
+    const detailId = "recipe-detail-" + idx;
+    viewBtn.setAttribute("aria-controls", detailId);
+
+    const detail = document.createElement("div");
+    detail.className = "recipe-detail";
+    detail.id = detailId;
+    detail.innerHTML = buildRecipeDetailHtml(item);
+    detail.hidden = true;
+
+    viewBtn.addEventListener("click", () => {
+      const isOpen = !detail.hidden;
+      detail.hidden = isOpen;
+      viewBtn.classList.toggle("open", !isOpen);
+      viewBtn.setAttribute("aria-expanded", String(!isOpen));
+    });
+
+    row.appendChild(addBtn);
+    row.appendChild(viewBtn);
+    card.appendChild(row);
+    card.appendChild(detail);
+    grid.appendChild(card);
   });
+}
+
+function buildRecipeDetailHtml(item) {
+  const ingredientRows = item.ingredients.map((ing) =>
+    '<tr><td class="ing-amt">' + escapeHtml(ing.amount) + '</td><td class="ing-item">' + escapeHtml(ing.item) + '</td><td class="ing-protein">' + (ing.protein > 0 ? ing.protein + "g" : "&mdash;") + '</td></tr>'
+  ).join("");
+
+  const stepItems = item.steps.map((s, i) =>
+    '<li><span class="step-num">' + (i + 1) + '</span><span class="step-text">' + escapeHtml(s) + '</span></li>'
+  ).join("");
+
+  return (
+    '<div class="recipe-meta">Serves ' + item.serves + ' &middot; ' + escapeHtml(item.time) + '</div>' +
+    '<table class="ing-table">' +
+      '<thead><tr><th>Amount</th><th>Ingredient</th><th>Protein</th></tr></thead>' +
+      '<tbody>' + ingredientRows + '</tbody>' +
+      '<tfoot><tr><td></td><td>Total</td><td class="ing-total">' + item.protein + 'g</td></tr></tfoot>' +
+    '</table>' +
+    '<div class="steps-title">Directions</div>' +
+    '<ol class="steps-list">' + stepItems + '</ol>'
+  );
 }
 
 function initCustomAdd() {
