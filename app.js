@@ -4,6 +4,16 @@ const END_DATE = "2027-06-19"; // one year inclusive
 const STORAGE_PREFIX = "protein-tracker:";
 const TARGET_KEY = STORAGE_PREFIX + "target";
 const LOG_PREFIX = STORAGE_PREFIX + "log:";
+const CALC_WEIGHT_KEY = STORAGE_PREFIX + "calc-weight";
+const CALC_ACTIVITY_KEY = STORAGE_PREFIX + "calc-activity";
+
+// Protein-per-bodyweight guidance, used by the protein needs calculator.
+const ACTIVITY_LEVELS = {
+  sedentary: { label: "Sedentary", low: 1.0, high: 1.2 },
+  active: { label: "Active", low: 1.2, high: 1.4 },
+  very_active: { label: "Very Active", low: 1.4, high: 2.0 },
+};
+const LBS_PER_KG = 2.2046226218;
 
 // Each recipe's protein total is the sum of its own ingredient list (not a separate rounded estimate),
 // so the quick-add number always matches what the detail view shows.
@@ -239,6 +249,37 @@ const RECIPES = [
     ],
     steps: ["Portion and eat."],
   },
+  {
+    name: "Gluten-free pumpkin seed protein ball (1 of 12)",
+    meal: "Dessert",
+    serves: 12,
+    time: "10 min prep + 20 min chill (makes 12 balls)",
+    // Ingredients are listed at full-batch quantities (as the recipe is made), so the table below
+    // totals the whole batch. servingProtein is the per-ball amount actually logged by Quick Add.
+    servingProtein: 5.1,
+    servingLabel: "1 ball",
+    ingredients: [
+      { amount: "3/4 cup", item: "Certified gluten-free rolled oats", protein: 9 },
+      { amount: "3 scoops", item: "Pumpkin seed protein powder", protein: 30 },
+      { amount: "1/4 cup", item: "Natural peanut butter", protein: 16 },
+      { amount: "1/3 cup", item: "Honey or maple syrup", protein: 0 },
+      { amount: "2 tbsp", item: "Chia seeds", protein: 3 },
+      { amount: "2 tbsp", item: "Ground flax seed", protein: 2.5 },
+      { amount: "2 tbsp", item: "Mini dark chocolate chips (optional)", protein: 1 },
+      { amount: "1 tsp", item: "Vanilla extract", protein: 0 },
+      { amount: "Pinch", item: "Salt", protein: 0 },
+    ],
+    steps: [
+      "Whisk the oats, protein powder, chia seeds, flax seed, and salt together in a large bowl until no clumps of protein powder remain.",
+      "Add the peanut butter, honey (or maple syrup), and vanilla extract. Stir until a thick, uniform dough forms — add honey 1 tsp at a time if too dry, or oats 1 tbsp at a time if too sticky.",
+      "Gently fold in the chocolate chips, if using.",
+      "Cover and refrigerate the dough for 20 minutes — this makes it much easier to roll.",
+      "Scoop about 2 tablespoons (~33 g) of dough per ball and roll into 12 balls, each roughly 1.5 inches across (about the size of a ping-pong ball).",
+      "Refrigerate the balls in an airtight container for at least 30 minutes before eating to firm up. Keeps in the fridge up to 1 week, or in the freezer up to 3 months.",
+      "Confirm your protein powder, chocolate chips, and vanilla extract are all labeled certified gluten-free, since cross-contact can occur even with naturally GF ingredients like oats.",
+      "The table above totals the whole batch (~61.5 g protein, ~1440 cal across 12 balls). Quick Add logs one ball at a time (~5.1 g protein, ~120 cal).",
+    ],
+  },
 ];
 
 // Derive each recipe's total protein from its own ingredient list so quick-add and detail view never disagree.
@@ -246,7 +287,7 @@ RECIPES.forEach((r) => {
   r.protein = Math.round(r.ingredients.reduce((sum, ing) => sum + ing.protein, 0) * 10) / 10;
 });
 
-const MEALS = ["Breakfast", "Lunch", "Dinner", "Snack"];
+const MEALS = ["Breakfast", "Lunch", "Dinner", "Snack", "Dessert"];
 
 // ---------- Date helpers (all dates handled as YYYY-MM-DD strings, local time) ----------
 function toDateObj(ymd) {
@@ -348,7 +389,7 @@ function getAllLoggedDates() {
 }
 
 // ---------- Export / import ----------
-function exportData() {
+async function exportData() {
   const dates = getAllLoggedDates();
   const logs = {};
   dates.forEach((ymd) => { logs[ymd] = loadEntriesFor(ymd); });
@@ -361,18 +402,66 @@ function exportData() {
   };
 
   const json = JSON.stringify(payload, null, 2);
+  const stamp = toYmd(new Date());
+  const filename = "protein-tracker-backup-" + stamp + ".json";
+
+  // Prefer the browser's native "Save As" dialog so the person always picks the
+  // destination, instead of the file landing silently in the Downloads folder.
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: filename,
+        types: [
+          {
+            description: "JSON backup",
+            accept: { "application/json": [".json"] },
+          },
+        ],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(json);
+      await writable.close();
+      showToast("Backup saved &middot; " + dates.length + " day(s)");
+    } catch (err) {
+      if (err && err.name === "AbortError") return; // person cancelled the dialog — do nothing
+      downloadViaAnchor(json, filename); // picker failed for another reason — fall back
+      showToast("Backup downloaded &middot; " + dates.length + " day(s)");
+    }
+    return;
+  }
+
+  // Safari (macOS/iPadOS/iOS) doesn't support showSaveFilePicker at all. The closest
+  // thing it offers to a destination-choice dialog is the native Share Sheet, where
+  // "Save to Files" lets the person pick a real folder instead of a silent download.
+  if (navigator.share && navigator.canShare) {
+    try {
+      const file = new File([json], filename, { type: "application/json" });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: filename });
+        showToast("Backup ready &middot; " + dates.length + " day(s)");
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === "AbortError") return; // person cancelled the share sheet
+      // any other error: fall through to the plain download below
+    }
+  }
+
+  // Last-resort fallback for browsers with neither API (e.g. older Firefox).
+  downloadViaAnchor(json, filename);
+  showToast("Backup downloaded &middot; " + dates.length + " day(s)");
+}
+
+function downloadViaAnchor(json, filename) {
   const blob = new Blob([json], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const stamp = toYmd(new Date());
   a.href = url;
-  a.download = "protein-tracker-backup-" + stamp + ".json";
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-  showToast("Backup downloaded &middot; " + dates.length + " day(s)");
 }
 
 function importDataFromFile(file) {
@@ -421,6 +510,7 @@ function importDataFromFile(file) {
     entries = loadEntriesFor(currentDate);
     renderDay();
     renderHistory();
+    renderCustomChooser();
 
     let msg = entriesAdded > 0
       ? "Imported " + entriesAdded + " entr" + (entriesAdded === 1 ? "y" : "ies") + " across " + daysWritten + " day(s)."
@@ -558,54 +648,63 @@ function goToDate(ymd) {
 
 // ---------- Quick add / custom add ----------
 function renderQuickAdds() {
-  const grid = document.getElementById("quickGrid");
-  grid.innerHTML = "";
-  RECIPES.forEach((item, idx) => {
-    const card = document.createElement("div");
-    card.className = "recipe-card";
+  const select = document.getElementById("quickRecipeSelect");
+  const mealSelect = document.getElementById("quickMeal");
+  const addBtn = document.getElementById("quickAddBtn");
+  const viewBtn = document.getElementById("quickViewBtn");
+  const detail = document.getElementById("quickRecipeDetail");
 
-    const row = document.createElement("div");
-    row.className = "recipe-row";
-
-    const addBtn = document.createElement("button");
-    addBtn.className = "quick-btn";
-    addBtn.innerHTML = '<span class="qname">' + escapeHtml(item.name) + '</span><span class="qprotein">' + item.protein + 'g protein &middot; ' + item.meal + '</span>';
-    addBtn.addEventListener("click", () => {
-      entries.push({ name: item.name, protein: item.protein, meal: item.meal, ts: Date.now() });
-      saveEntriesFor(currentDate, entries);
-      renderDay();
-      renderHistory();
-      flashButton(addBtn);
-      showToast(item.name + " added &middot; +" + item.protein + "g");
+  // Alphabetical by name; value still references the original RECIPES index.
+  select.innerHTML = "";
+  RECIPES.map((r, idx) => ({ r, idx }))
+    .sort((a, b) => a.r.name.localeCompare(b.r.name))
+    .forEach(({ r, idx }) => {
+      const displayProtein = r.servingProtein != null ? r.servingProtein : r.protein;
+      const opt = document.createElement("option");
+      opt.value = String(idx);
+      opt.textContent = r.name + " \u2014 " + displayProtein + "g";
+      select.appendChild(opt);
     });
 
-    const viewBtn = document.createElement("button");
-    viewBtn.className = "view-recipe-btn";
-    viewBtn.setAttribute("aria-label", "View recipe for " + item.name);
-    viewBtn.setAttribute("aria-expanded", "false");
-    viewBtn.innerHTML = "<span class=\"chev\">&#9662;</span>";
+  function selectedRecipe() {
+    const idx = Number(select.value);
+    return RECIPES[idx];
+  }
 
-    const detailId = "recipe-detail-" + idx;
-    viewBtn.setAttribute("aria-controls", detailId);
-
-    const detail = document.createElement("div");
-    detail.className = "recipe-detail";
-    detail.id = detailId;
+  function updateDetail() {
+    const item = selectedRecipe();
+    if (!item) return;
     detail.innerHTML = buildRecipeDetailHtml(item);
-    detail.hidden = true;
+    // Default the meal chooser to this recipe's usual meal; the person can still override it.
+    if (MEALS.indexOf(item.meal) !== -1) mealSelect.value = item.meal;
+  }
 
-    viewBtn.addEventListener("click", () => {
-      const isOpen = !detail.hidden;
-      detail.hidden = isOpen;
-      viewBtn.classList.toggle("open", !isOpen);
-      viewBtn.setAttribute("aria-expanded", String(!isOpen));
-    });
+  updateDetail();
 
-    row.appendChild(addBtn);
-    row.appendChild(viewBtn);
-    card.appendChild(row);
-    card.appendChild(detail);
-    grid.appendChild(card);
+  select.addEventListener("change", () => {
+    updateDetail();
+  });
+
+  viewBtn.addEventListener("click", () => {
+    const isOpen = !detail.hidden;
+    detail.hidden = isOpen;
+    viewBtn.textContent = isOpen ? "View recipe" : "Hide recipe";
+    viewBtn.classList.toggle("open", !isOpen);
+  });
+
+  addBtn.addEventListener("click", () => {
+    const item = selectedRecipe();
+    if (!item) return;
+    const meal = mealSelect.value;
+    const proteinToAdd = item.servingProtein != null ? item.servingProtein : item.protein;
+    const logName = item.servingLabel ? item.name + " (" + item.servingLabel + ")" : item.name;
+    entries.push({ name: logName, protein: proteinToAdd, meal, ts: Date.now() });
+    saveEntriesFor(currentDate, entries);
+    renderDay();
+    renderHistory();
+    renderCustomChooser();
+    flashButton(addBtn);
+    showToast(logName + " added &middot; +" + proteinToAdd + "g");
   });
 }
 
@@ -618,8 +717,13 @@ function buildRecipeDetailHtml(item) {
     '<li><span class="step-num">' + (i + 1) + '</span><span class="step-text">' + escapeHtml(s) + '</span></li>'
   ).join("");
 
+  const servingNote = item.servingProtein != null
+    ? '<div class="recipe-meta" style="margin-top:-6px;margin-bottom:10px;">Quick Add logs ' + escapeHtml(item.servingLabel || "1 serving") + ' &middot; ' + item.servingProtein + 'g protein</div>'
+    : "";
+
   return (
     '<div class="recipe-meta">Serves ' + item.serves + ' &middot; ' + escapeHtml(item.time) + '</div>' +
+    servingNote +
     '<table class="ing-table">' +
       '<thead><tr><th>Amount</th><th>Ingredient</th><th>Protein</th></tr></thead>' +
       '<tbody>' + ingredientRows + '</tbody>' +
@@ -631,6 +735,34 @@ function buildRecipeDetailHtml(item) {
 }
 
 function initCustomAdd() {
+  renderCustomChooser();
+
+  document.getElementById("customChooser").addEventListener("change", (e) => {
+    const idx = e.target.value;
+    e.target.value = ""; // reset chooser back to placeholder right away
+    if (idx === "") return;
+    const item = customChooserItems[Number(idx)];
+    if (!item) return;
+
+    const nameEl = document.getElementById("customName");
+    const proteinEl = document.getElementById("customProtein");
+    const mealEl = document.getElementById("customMeal");
+
+    // Auto-fill fields for visibility, then log immediately.
+    nameEl.value = item.name;
+    proteinEl.value = item.protein;
+    if (MEALS.indexOf(item.meal) !== -1) mealEl.value = item.meal;
+
+    entries.push({ name: item.name, protein: item.protein, meal: mealEl.value, ts: Date.now() });
+    saveEntriesFor(currentDate, entries);
+    nameEl.value = "";
+    proteinEl.value = "";
+    renderDay();
+    renderHistory();
+    setStatus("");
+    showToast(item.name + " added &middot; +" + item.protein + "g");
+  });
+
   document.getElementById("addCustomBtn").addEventListener("click", () => {
     const nameEl = document.getElementById("customName");
     const proteinEl = document.getElementById("customProtein");
@@ -647,8 +779,44 @@ function initCustomAdd() {
     proteinEl.value = "";
     renderDay();
     renderHistory();
+    renderCustomChooser();
     setStatus("");
     showToast(name + " added &middot; +" + protein + "g");
+  });
+}
+
+// Builds the deduped list of previously-logged custom items (most recent protein/meal wins per name)
+// across every day in storage, so the chooser reflects everything ever entered, not just today.
+let customChooserItems = [];
+function getAllCustomItems() {
+  if (!HAS_STORAGE) return [];
+  const dates = getAllLoggedDates();
+  const map = new Map();
+  dates.forEach((ymd) => {
+    loadEntriesFor(ymd).forEach((e) => {
+      if (!e || !e.name || typeof e.protein !== "number") return;
+      const key = e.name.trim().toLowerCase();
+      const existing = map.get(key);
+      if (!existing || (e.ts || 0) > (existing.ts || 0)) {
+        map.set(key, { name: e.name, protein: e.protein, meal: e.meal, ts: e.ts || 0 });
+      }
+    });
+  });
+  return Array.from(map.values()).sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+  );
+}
+
+function renderCustomChooser() {
+  const select = document.getElementById("customChooser");
+  if (!select) return;
+  customChooserItems = getAllCustomItems();
+  select.innerHTML = '<option value="">Choose a previous item&hellip;</option>';
+  customChooserItems.forEach((item, idx) => {
+    const opt = document.createElement("option");
+    opt.value = String(idx);
+    opt.textContent = item.name + " \u2014 " + item.protein + "g";
+    select.appendChild(opt);
   });
 }
 
@@ -837,6 +1005,79 @@ function initTargetControl() {
   });
 }
 
+// ---------- Protein needs calculator ----------
+function initProteinCalculator() {
+  const weightEl = document.getElementById("calcWeight");
+  const activityEl = document.getElementById("calcActivity");
+  const resultEl = document.getElementById("calcResult");
+  const applyBtn = document.getElementById("calcApplyBtn");
+
+  // Restore the last-used weight/activity level so the calculator doesn't reset every visit.
+  if (HAS_STORAGE) {
+    try {
+      const savedWeight = localStorage.getItem(CALC_WEIGHT_KEY);
+      if (savedWeight) weightEl.value = savedWeight;
+      const savedActivity = localStorage.getItem(CALC_ACTIVITY_KEY);
+      if (savedActivity && ACTIVITY_LEVELS[savedActivity]) activityEl.value = savedActivity;
+    } catch (e) { /* ignore */ }
+  }
+
+  function updateResult() {
+    const lbs = Number(weightEl.value);
+    const level = ACTIVITY_LEVELS[activityEl.value];
+    if (!lbs || lbs <= 0 || !level) {
+      resultEl.innerHTML = "";
+      applyBtn.disabled = true;
+      return;
+    }
+    const kg = lbs / LBS_PER_KG;
+    const low = Math.round(kg * level.low);
+    const high = Math.round(kg * level.high);
+    resultEl.innerHTML =
+      level.label + " at " + round1(lbs) + " lbs (" + round1(kg) + " kg): " +
+      '<span class="calc-range">' + low + "\u2013" + high + "g protein/day</span>";
+    applyBtn.disabled = false;
+
+    if (HAS_STORAGE) {
+      try {
+        localStorage.setItem(CALC_WEIGHT_KEY, String(lbs));
+        localStorage.setItem(CALC_ACTIVITY_KEY, activityEl.value);
+      } catch (e) { /* ignore */ }
+    }
+  }
+
+  updateResult();
+  weightEl.addEventListener("input", updateResult);
+  activityEl.addEventListener("change", updateResult);
+
+  applyBtn.addEventListener("click", () => {
+    const lbs = Number(weightEl.value);
+    const level = ACTIVITY_LEVELS[activityEl.value];
+    if (!lbs || lbs <= 0 || !level) return;
+    const kg = lbs / LBS_PER_KG;
+    const mid = Math.round(kg * ((level.low + level.high) / 2));
+    document.getElementById("targetInput").value = mid;
+    saveTarget(mid);
+    renderDay();
+    renderHistory();
+    setStatus("Daily target set to " + mid + "g from the calculator.");
+    setTimeout(() => setStatus(""), 2000);
+  });
+
+  // Info modal with the activity-level reference table
+  const overlay = document.getElementById("proteinInfoOverlay");
+  const infoBtn = document.getElementById("proteinInfoBtn");
+  const closeBtn = document.getElementById("proteinInfoClose");
+  infoBtn.addEventListener("click", () => { overlay.hidden = false; });
+  closeBtn.addEventListener("click", () => { overlay.hidden = true; });
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.hidden = true; // click outside the modal closes it
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !overlay.hidden) overlay.hidden = true;
+  });
+}
+
 // ---------- PWA install prompt ----------
 let deferredInstallPrompt = null;
 function initInstallBanner() {
@@ -893,6 +1134,7 @@ function init() {
   initCustomAdd();
   initDayNav();
   initTargetControl();
+  initProteinCalculator();
   initPeriodTabs();
   initInstallBanner();
   initBackupRestore();
