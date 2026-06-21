@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Protein Tracker</title>
-<meta name="description" content="Daily protein tracker for a calcium-conscious WFPB plan">
+<meta name="description" content="Daily protein tracker — whole food plant based, with salmon for omega 3s and occasional eggs">
 <meta name="theme-color" content="#0F6E56">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -16,7 +16,7 @@
 <body>
 <div class="wrap">
   <h1>Daily protein tracker</h1>
-  <p class="sub">Target ~190g/day &middot; calcium-conscious WFPB plan</p>
+  <p class="sub">Whole food plant-based eating, supplemented with salmon for omega-3s and occasional eggs.</p>
 
   <div class="install-banner" id="installBanner">
     <span>Install this app on your home screen for quick access.</span>
@@ -58,12 +58,56 @@
   </div>
 
   <div class="card">
+    <div class="section-title-row">
+      <div class="section-title">Protein needs calculator</div>
+      <button class="info-btn" id="proteinInfoBtn" type="button" aria-label="About activity level protein guidance" aria-haspopup="dialog">&#9432;</button>
+    </div>
+    <div class="custom-row">
+      <div class="calc-field">
+        <label for="calcWeight">Weight (lbs)</label>
+        <input type="number" id="calcWeight" min="0" step="0.5" placeholder="e.g. 170">
+      </div>
+      <div class="calc-field">
+        <label for="calcActivity">Activity level</label>
+        <select id="calcActivity">
+          <option value="sedentary">Sedentary</option>
+          <option value="active">Active</option>
+          <option value="very_active">Very Active</option>
+        </select>
+      </div>
+    </div>
+    <div class="calc-result" id="calcResult"></div>
+    <div class="calc-actions">
+      <button class="add-btn" id="calcApplyBtn">Use as daily target</button>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="section-title">Quick add &mdash; plan recipes</div>
-    <div class="quick-grid" id="quickGrid"></div>
+    <div class="custom-row">
+      <select id="quickRecipeSelect" class="quick-select"></select>
+      <select id="quickMeal">
+        <option value="Breakfast">Breakfast</option>
+        <option value="Lunch">Lunch</option>
+        <option value="Dinner">Dinner</option>
+        <option value="Snack">Snack</option>
+        <option value="Dessert">Dessert</option>
+      </select>
+      <button class="add-btn" id="quickAddBtn">Add</button>
+      <button class="add-btn secondary" id="quickViewBtn">View recipe</button>
+    </div>
+    <div class="quick-detail-wrap">
+      <div class="recipe-detail" id="quickRecipeDetail" hidden></div>
+    </div>
   </div>
 
   <div class="card">
     <div class="section-title">Add custom item</div>
+    <div class="custom-row">
+      <select id="customChooser">
+        <option value="">Choose a previous item&hellip;</option>
+      </select>
+    </div>
     <div class="custom-row">
       <input type="text" id="customName" placeholder="Food name">
       <input type="number" id="customProtein" placeholder="Protein (g)" min="0" step="0.5">
@@ -72,6 +116,7 @@
         <option value="Lunch">Lunch</option>
         <option value="Dinner">Dinner</option>
         <option value="Snack">Snack</option>
+        <option value="Dessert">Dessert</option>
       </select>
       <button class="add-btn" id="addCustomBtn">Add</button>
     </div>
@@ -105,6 +150,37 @@
       <canvas id="historyChart"></canvas>
     </div>
     <div class="stats-grid" id="statsGrid"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="proteinInfoOverlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="proteinInfoTitle">
+    <div class="modal-header">
+      <div class="modal-title" id="proteinInfoTitle">Protein intake by activity level</div>
+      <button class="modal-close" id="proteinInfoClose" aria-label="Close">&times;</button>
+    </div>
+    <table class="info-table">
+      <thead>
+        <tr><th>Activity Level</th><th>Recommended Intake (g/kg)</th><th>Purpose &amp; Clinical Focus</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Sedentary</td>
+          <td>1.0 to 1.2 g/kg</td>
+          <td>Prevents age-related muscle wasting; supports basic immune function.</td>
+        </tr>
+        <tr>
+          <td>Active</td>
+          <td>1.2 to 1.4 g/kg</td>
+          <td>Repairs muscle tissues from moderate exercise (e.g., brisk walking, swimming).</td>
+        </tr>
+        <tr>
+          <td>Very Active</td>
+          <td>1.4 to 2.0 g/kg</td>
+          <td>Sustains high-intensity training; accelerates recovery; prevents injury.</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </div>
 
