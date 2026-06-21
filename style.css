@@ -95,55 +95,93 @@ h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
 
 .section-title { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
 
-/* Quick add / recipes */
-.quick-grid { display: flex; flex-direction: column; gap: 8px; }
-.recipe-card {
+/* Protein calculator */
+.section-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.section-title-row .section-title { margin: 0; }
+.info-btn {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.info-btn:active { color: var(--accent); }
+.calc-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 130px; }
+.calc-field label { font-size: 11px; color: var(--text-muted); }
+.calc-field input, .calc-field select {
   border: 1px solid var(--border);
   border-radius: 8px;
-  overflow: hidden;
-  background: var(--surface);
-}
-.recipe-row { display: flex; align-items: stretch; }
-.quick-btn {
-  flex: 1;
-  border: none;
-  background: var(--surface);
-  padding: 10px 12px;
-  text-align: left;
-  cursor: pointer;
+  padding: 8px 10px;
   font-size: 13px;
+  background: var(--surface);
   color: var(--text);
 }
-.quick-btn:active { background: var(--bg); }
-.quick-btn.added {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.quick-btn.added .qname,
-.quick-btn.added .qprotein { color: #fff; }
-.quick-btn .qname { font-weight: 500; display: block; }
-.quick-btn .qprotein { color: var(--accent); font-size: 12px; transition: color 0.15s ease; }
-.quick-btn { transition: background 0.15s ease, border-color 0.15s ease; }
+.calc-result { font-size: 13px; color: var(--text); margin-top: 10px; min-height: 18px; line-height: 1.5; }
+.calc-result .calc-range { font-weight: 600; color: var(--accent); }
+.calc-actions { margin-top: 10px; }
 
-.view-recipe-btn {
-  border: none;
-  border-left: 1px solid var(--border);
-  background: var(--surface);
-  width: 44px;
-  flex-shrink: 0;
-  cursor: pointer;
-  color: var(--text-muted);
+/* Info modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 1rem;
+  z-index: 200;
 }
-.view-recipe-btn:active { background: var(--bg); }
-.view-recipe-btn .chev {
-  font-size: 14px;
-  transition: transform 0.2s ease;
-  display: inline-block;
+.modal-overlay[hidden] { display: none; }
+.modal {
+  background: var(--surface);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  max-width: 480px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1rem 1.1rem;
 }
-.view-recipe-btn.open .chev { transform: rotate(180deg); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.modal-title { font-size: 15px; font-weight: 600; }
+.modal-close { border: none; background: none; color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.modal-close:active { color: var(--danger); }
+
+.info-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.info-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.info-table td { padding: 8px 6px; border-bottom: 1px solid var(--border-soft); vertical-align: top; line-height: 1.4; }
+.info-table tr:last-child td { border-bottom: none; }
+.info-table td:first-child { font-weight: 600; white-space: nowrap; }
+.info-table td:nth-child(2) { white-space: nowrap; color: var(--accent); }
+
+/* Quick add / recipes */
+.quick-select {
+  flex: 1 1 160px;
+  min-width: 140px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+}
+.quick-detail-wrap {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.quick-detail-wrap .recipe-detail { border-top: none; }
+.quick-detail-wrap .recipe-detail[hidden] { display: none; }
 
 .recipe-detail {
   padding: 12px 14px 14px;
@@ -224,6 +262,7 @@ h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
 .custom-row input[type="text"] { flex: 2; min-width: 140px; }
 .custom-row input[type="number"] { flex: 1; min-width: 70px; }
 .custom-row select { flex: 1; min-width: 110px; }
+#quickMeal { flex: 0 1 110px; min-width: 110px; max-width: 130px; }
 
 .add-btn {
   background: var(--accent);
@@ -236,6 +275,9 @@ h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
   cursor: pointer;
 }
 .add-btn:active { background: var(--accent-dark); }
+.add-btn.added { background: var(--accent-dark); }
+.add-btn:disabled { opacity: 0.45; cursor: default; }
+.add-btn:disabled:active { background: var(--accent); }
 .add-btn.secondary {
   background: var(--surface);
   color: var(--accent);
