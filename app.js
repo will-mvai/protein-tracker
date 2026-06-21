@@ -1060,8 +1060,7 @@ function initProteinCalculator() {
     saveTarget(mid);
     renderDay();
     renderHistory();
-    setStatus("Daily target set to " + mid + "g from the calculator.");
-    setTimeout(() => setStatus(""), 2000);
+    showToast("Daily target set to " + mid + "g");
   });
 
   // Info modal with the activity-level reference table
